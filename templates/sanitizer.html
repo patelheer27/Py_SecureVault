@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Metadata Sanitizer{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Video Metadata Sanitizer</h1>
+  <p class="muted">Phone videos quietly record <b>where</b> you were, <b>when</b>, and <b>which device</b> you used. Strip it before you share.</p>
+</section>
+
+{% if not ffmpeg_ok %}
+<div class="card alert-bad">
+  <h2>ffmpeg is not installed</h2>
+  <p>This component needs <code>ffmpeg</code> and <code>ffprobe</code> on your PATH. See the README: Windows <code>winget install ffmpeg</code>, macOS <code>brew install ffmpeg</code>, Linux <code>sudo apt install ffmpeg</code>. Then restart the app.</p>
+</div>
+{% else %}
+<section class="card">
+  <form method="post" enctype="multipart/form-data" class="form" data-busy="Sanitizing… large videos can take a moment">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="drop">
+      <input type="file" name="video" accept=".mp4,.mov,.m4v,.mkv,.webm,.avi,video/*" required data-filename>
+      <span class="drop-title">Choose a video</span>
+      <span class="drop-sub muted small" data-filename-label>MP4, MOV, M4V, MKV, WEBM, AVI · up to 500 MB</span>
+    </label>
+    <button class="btn btn-primary" type="submit">Sanitize video</button>
+  </form>
+  <p class="small muted">The original upload is deleted right after processing. The clean copy is available for 30 minutes, to your account only.</p>
+</section>
+{% endif %}
+
+{% if report %}
+<section class="card result result-ok">
+  <div class="result-head">
+    <div>
+      <h2>{{ report.filename }} sanitized</h2>
+      <p class="muted">{{ report.removed_count }} metadata entries removed, {{ report.sensitive_removed }} of them privacy-sensitive{% if report.removed_streams %}, plus hidden streams: {% for k, v in report.removed_streams.items() %}{{ v }} {{ k }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('sanitizer_download', token=report.token) }}">Download clean video</a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-n">{{ report.before|length }}</span><span class="stat-l">tags before</span></div>
+    <div class="stat"><span class="stat-n">{{ report.after|length }}</span><span class="stat-l">tags after</span></div>
+    <div class="stat stat-bad"><span class="stat-n">{{ report.sensitive_removed }}</span><span class="stat-l">sensitive removed</span></div>
+    <div class="stat"><span class="stat-n">{{ report.size_before|filesize }} → {{ report.size_after|filesize }}</span><span class="stat-l">file size</span></div>
+  </div>
+
+  <h3>Before → after</h3>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Where</th><th>Tag</th><th>Value</th><th>Result</th></tr></thead>
+    <tbody>
+    {% for r in report.before %}
+      <tr class="{{ 'row-sensitive' if r.sensitive and r.removed }}">
+        <td class="nowrap muted">{{ r.scope }}</td>
+        <td class="mono">{{ r.key }}{% if r.sensitive %} <span class="pill pill-bad pill-xs">sensitive</span>{% endif %}</td>
+        <td class="mono wrap">{{ r.value }}</td>
+        <td>{% if r.removed %}<span class="evt evt-ok">REMOVED</span>{% else %}<span class="evt evt-neutral">kept</span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">This file had no metadata tags.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if report.after %}
+  <p class="small muted">Tags still present are structural fields the container format requires (brand, language, handler name). They don't identify you.</p>
+  {% endif %}
+
+  <h3>SHA-256 fingerprints</h3>
+  <dl class="hashes">
+    <div><dt>Original</dt><dd><code>{{ report.hash_before }}</code></dd></div>
+    <div><dt>Sanitized</dt><dd><code>{{ report.hash_after }}</code> <button class="btn btn-ghost btn-xs" type="button" data-copy="{{ report.hash_after }}">Copy</button></dd></div>
+  </dl>
+  <p class="small muted">Different hashes prove the file changed. Register the sanitized copy in the <a href="{{ url_for('integrity') }}">Integrity Checker</a> to detect any later modification.</p>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Recovery codes{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <div class="steps"><span class="step done">1 Account</span><span class="step done">2 Authenticator</span><span class="step on">3 Recovery codes</span></div>
+  <h1>Save your recovery codes</h1>
+  <p class="muted">If you lose your phone, each code below lets you sign in <b>once</b>. They are stored only as salted hashes, so this is the only time you will see them.</p>
+  <ul class="codes">
+    {% for c in codes %}<li><code>{{ c }}</code></li>{% endfor %}
+  </ul>
+  <div class="row">
+    <button class="btn btn-ghost" type="button" data-copy="{{ codes|join('\n') }}">Copy all</button>
+    <a class="btn btn-primary" href="{{ url_for('dashboard') }}">I've saved them, continue</a>
+  </div>
+</div>
+{% endblock %}

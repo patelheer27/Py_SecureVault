@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body_class %}auth{% endblock %}
+{% block main_class %}auth-wrap{% endblock %}
+{% block content %}
+<div class="auth-side">
+  <div class="brand brand-lg"><span class="brand-mark" aria-hidden="true"></span>{{ APP_NAME }}</div>
+  <p class="auth-tag">Three layers of protection for your account and your files.</p>
+  <ol class="layers">
+    <li><b>Multi-factor sign-in</b><span>Password + rotating 6-digit code from your phone</span></li>
+    <li><b>Video metadata sanitizer</b><span>Strips GPS, device and time data before you share</span></li>
+    <li><b>SHA-256 integrity checker</b><span>Proves a file hasn't changed by a single bit</span></li>
+  </ol>
+</div>
+<div class="card auth-card">
+  {% block auth %}{% endblock %}
+</div>
+{% endblock %}

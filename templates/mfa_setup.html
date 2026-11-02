@@ -1,0 +1,23 @@
+{% extends "auth_base.html" %}
+{% block title %}Set up authenticator{% endblock %}
+{% block auth %}
+<div class="steps"><span class="step done">1 Account</span><span class="step on">2 Set up authenticator</span><span class="step">3 Recovery codes</span></div>
+<h1>Scan with your authenticator</h1>
+<p class="muted">Use Google Authenticator, Microsoft Authenticator, Authy or any TOTP app. MFA is mandatory on this site.</p>
+<div class="qr-row">
+  <img class="qr" src="{{ qr }}" alt="QR code containing your TOTP secret" width="180" height="180">
+  <div>
+    <p class="small muted">Can't scan? Enter this key manually:</p>
+    <code class="secret" data-copy-src>{{ secret }}</code>
+    <button class="btn btn-ghost btn-sm" type="button" data-copy="{{ secret|replace(' ', '') }}">Copy key</button>
+    <p class="small muted">Type: time-based · 6 digits · 30 s</p>
+  </div>
+</div>
+<form method="post" class="form" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Enter the 6-digit code shown in the app
+    <input name="code" class="otp" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autocomplete="one-time-code" autofocus>
+  </label>
+  <button class="btn btn-primary btn-block" type="submit">Verify &amp; enable MFA</button>
+</form>
+{% endblock %}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ APP_NAME }}{% endblock %} · {{ APP_NAME }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% if session.get('mfa_ok') %}
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('dashboard') }}">
+      <span class="brand-mark" aria-hidden="true"></span>{{ APP_NAME }}
+    </a>
+    <nav class="nav">
+      {% set ep = request.endpoint or '' %}
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Overview</a>
+      <a href="{{ url_for('sanitizer') }}" class="{{ 'active' if ep.startswith('sanitizer') }}">Metadata Sanitizer</a>
+      <a href="{{ url_for('integrity') }}" class="{{ 'active' if ep.startswith('integrity') }}">Integrity Checker</a>
+    </nav>
+    <div class="who">
+      <span class="pill pill-ok" title="Signed in with password + authenticator code">MFA</span>
+      <span class="username">{{ session.get('username') }}</span>
+      <form method="post" action="{{ url_for('logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
+      </form>
+    </div>
+  </header>
+  {% endif %}
+
+  <main class="{% block main_class %}page{% endblock %}">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flashes">
+        {% for cat, msg in messages %}<div class="flash flash-{{ cat }}" role="alert">{{ msg }}</div>{% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

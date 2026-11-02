@@ -1,0 +1,21 @@
+{% extends "auth_base.html" %}
+{% block title %}Create account{% endblock %}
+{% block auth %}
+<div class="steps"><span class="step on">1 Account</span><span class="step">2 Set up authenticator</span><span class="step">3 Recovery codes</span></div>
+<h1>Create account</h1>
+<form method="post" class="form" autocomplete="off">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>Username <input name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_]+" autocomplete="username" autofocus></label>
+  <label>Password <input name="password" type="password" required minlength="10" autocomplete="new-password" data-strength></label>
+  <div class="meter" aria-hidden="true"><span data-meter></span></div>
+  <ul class="rules" data-rules>
+    <li data-rule="len">10+ characters</li>
+    <li data-rule="case">Upper &amp; lower case</li>
+    <li data-rule="digit">A digit</li>
+    <li data-rule="sym">A symbol</li>
+  </ul>
+  <label>Confirm password <input name="confirm" type="password" required autocomplete="new-password"></label>
+  <button class="btn btn-primary btn-block" type="submit">Create account &amp; set up MFA</button>
+</form>
+<p class="muted small">Already registered? <a href="{{ url_for('login') }}">Sign in</a></p>
+{% endblock %}

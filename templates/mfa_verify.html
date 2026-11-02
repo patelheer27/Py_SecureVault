@@ -1,0 +1,32 @@
+{% extends "auth_base.html" %}
+{% block title %}Verify code{% endblock %}
+{% block auth %}
+<div class="steps"><span class="step done">1 Password</span><span class="step on">2 Authenticator</span></div>
+<h1>Two-step verification</h1>
+<p class="muted">Password accepted for <b>{{ username }}</b>. Now prove you have your phone.</p>
+
+<div data-panel="totp">
+  <form method="post" class="form" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="method" value="totp">
+    <label>6-digit code from your authenticator
+      <input name="code" class="otp" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autocomplete="one-time-code" autofocus>
+    </label>
+    <div class="ticker"><span class="ticker-bar"><span data-ticker></span></span><span class="small muted" data-ticker-label>Code refreshes every 30 s</span></div>
+    <button class="btn btn-primary btn-block" type="submit">Verify</button>
+  </form>
+  <p class="small muted">Lost your phone? <a href="#" data-switch="recovery">Use a recovery code</a></p>
+</div>
+
+<div data-panel="recovery" hidden>
+  <form method="post" class="form" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="method" value="recovery">
+    <label>Recovery code (each works once)
+      <input name="code" class="otp" placeholder="XXXXX-XXXXX" maxlength="11" required>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">Use recovery code</button>
+  </form>
+  <p class="small muted"><a href="#" data-switch="totp">Back to authenticator code</a></p>
+</div>
+{% endblock %}

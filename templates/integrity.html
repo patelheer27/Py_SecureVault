@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Integrity Checker{% endblock %}
+{% macro hashfield() %}
+  <input type="hidden" name="client_hash" data-client-hash>
+  <p class="small muted client-hash" data-client-hash-label hidden></p>
+{% endmacro %}
+{% block content %}
+<section class="hero">
+  <h1>File Integrity Checker</h1>
+  <p class="muted">A SHA-256 hash is a 64-character fingerprint. Change one bit of the file and the fingerprint changes completely.</p>
+</section>
+
+{% if result %}
+  {% set up = result.upload %}
+  {% set st = result.status or 'REGISTERED' %}
+  <section class="card result result-{{ 'ok' if st in ('INTACT', 'REGISTERED') else ('warn' if st == 'NO_RECORD' else 'bad') }}">
+    <div class="verdict">
+      {% if result.mode == 'register' %}
+        <span class="verdict-badge ok">REGISTERED</span>
+        <div><h2>{{ up.name }} fingerprinted</h2><p class="muted">Baseline stored and sealed with HMAC-SHA256. Verify this file any time later.</p></div>
+      {% elif st == 'INTACT' %}
+        <span class="verdict-badge ok">INTACT</span>
+        <div><h2>File is unchanged</h2><p class="muted">The hash matches the {{ 'registered baseline' if result.mode == 'verify' else 'expected hash' }} exactly.</p></div>
+      {% elif st == 'MODIFIED' %}
+        <span class="verdict-badge bad">MODIFIED</span>
+        <div><h2>File has been changed</h2><p class="muted">Hashes differ starting at character {{ result.diff_at + 1 }}.{% if result.size_delta is defined and result.size_delta %} Size changed by {{ '%+d'|format(result.size_delta) }} bytes.{% elif result.size_delta is defined %} Size is identical, so the content was altered in place.{% endif %}</p></div>
+      {% elif st == 'RECORD_TAMPERED' %}
+        <span class="verdict-badge bad">RECORD TAMPERED</span>
+        <div><h2>The stored hash itself was altered</h2><p class="muted">The HMAC seal on record #{{ result.record.id }} is invalid: someone edited the database without the secret key. The baseline can't be trusted, so no verdict on the file is possible.</p></div>
+      {% else %}
+        <span class="verdict-badge warn">NO BASELINE</span>
+        <div><h2>No registered record for "{{ up.name }}"</h2><p class="muted">{% if result.renamed_from %}But this exact content is registered as <b>{{ result.renamed_from }}</b>: same file, renamed.{% else %}Register it first, or pick a record manually.{% endif %}</p></div>
+      {% endif %}
+    </div>
+
+    <dl class="hashes">
+      <div><dt>Uploaded file</dt><dd><code>{{ up.sha256 }}</code> <span class="muted small">{{ up.size|filesize }}</span></dd></div>
+      {% if result.record %}
+      <div><dt>Registered #{{ result.record.id }}</dt><dd><code class="{{ 'code-bad' if st != 'INTACT' }}">{{ result.record.sha256 }}</code> <span class="muted small">{{ result.record.size|filesize }} · {{ result.record.created_at|when }}</span></dd></div>
+      <div><dt>HMAC seal</dt><dd>{% if result.seal_valid %}<span class="pill pill-ok">valid</span>{% else %}<span class="pill pill-bad">INVALID</span>{% endif %}</dd></div>
+      {% endif %}
+      {% if result.expected %}
+      <div><dt>Expected</dt><dd><code class="{{ 'code-bad' if st != 'INTACT' }}">{{ result.expected }}</code></dd></div>
+      {% endif %}
+      <div><dt>Upload in transit</dt><dd>
+        {% if up.transit_ok is none %}<span class="muted small">browser hash unavailable (needs localhost or HTTPS)</span>
+        {% elif up.transit_ok %}<span class="pill pill-ok">verified</span> <span class="muted small">browser hash = server hash</span>
+        {% else %}<span class="pill pill-bad">MISMATCH</span> <span class="muted small">file changed between your browser and the server</span>{% endif %}
+      </dd></div>
+    </dl>
+  </section>
+{% endif %}
+
+<section class="card">
+  <div class="tabs" role="tablist" data-active-tab="{{ result.mode if result and result.mode in ('verify', 'compare') else 'register' }}">
+    <button class="tab on" type="button" data-tab="register" role="tab">1 · Register baseline</button>
+    <button class="tab" type="button" data-tab="verify" role="tab">2 · Verify file</button>
+    <button class="tab" type="button" data-tab="compare" role="tab">Check against a known hash</button>
+  </div>
+
+  <form method="post" action="{{ url_for('integrity_register') }}" enctype="multipart/form-data" class="form" data-tabpanel="register" data-busy="Hashing…">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="muted">Store a trusted fingerprint now, so you can prove later whether the file changed.</p>
+    <label class="drop"><input type="file" name="file" required data-filename data-hash><span class="drop-title">Choose file to register</span><span class="drop-sub muted small" data-filename-label>Any file type · up to 500 MB</span></label>
+    {{ hashfield() }}
+    <label>Note (optional) <input name="note" maxlength="120" placeholder="e.g. final submission v2"></label>
+    <button class="btn btn-primary" type="submit">Register SHA-256</button>
+  </form>
+
+  <form method="post" action="{{ url_for('integrity_verify') }}" enctype="multipart/form-data" class="form" data-tabpanel="verify" data-busy="Hashing…" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="muted">Upload the file again and compare it to its registered baseline.</p>
+    <label class="drop"><input type="file" name="file" required data-filename data-hash><span class="drop-title">Choose file to verify</span><span class="drop-sub muted small" data-filename-label>Matched to the baseline by file name, or pick one below</span></label>
+    {{ hashfield() }}
+    <label>Compare against
+      <select name="record_id">
+        <option value="auto">Automatically (same file name, latest)</option>
+        {% for r in records %}<option value="{{ r.id }}">#{{ r.id }} · {{ r.filename }} · {{ r.created_at|when }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit">Verify integrity</button>
+  </form>
+
+  <form method="post" action="{{ url_for('integrity_compare') }}" enctype="multipart/form-data" class="form" data-tabpanel="compare" data-busy="Hashing…" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="muted">Downloaded software often publishes a SHA-256 checksum. Paste it here to confirm your download is genuine.</p>
+    <label class="drop"><input type="file" name="file" required data-filename data-hash><span class="drop-title">Choose file</span><span class="drop-sub muted small" data-filename-label>Any file type</span></label>
+    {{ hashfield() }}
+    <label>Expected SHA-256 <input name="expected" class="mono" required minlength="64" maxlength="70" placeholder="64 hex characters"></label>
+    <button class="btn btn-primary" type="submit">Compare</button>
+  </form>
+</section>
+
+<section class="card">
+  <div class="row-between">
+    <h2>Registered files</h2>
+    {% if records %}<a class="btn btn-ghost btn-sm" href="{{ url_for('integrity_manifest') }}">Export manifest (JSON)</a>{% endif %}
+  </div>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>#</th><th>File</th><th>SHA-256</th><th>Size</th><th>Registered</th><th>Seal</th><th></th></tr></thead>
+    <tbody>
+    {% for r in records %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.filename }}{% if r.note %}<div class="small muted">{{ r.note }}</div>{% endif %}</td>
+        <td class="mono"><span title="{{ r.sha256 }}">{{ r.sha256[:16] }}…{{ r.sha256[-6:] }}</span> <button class="btn btn-ghost btn-xs" type="button" data-copy="{{ r.sha256 }}">Copy</button></td>
+        <td class="nowrap">{{ r.size|filesize }}</td>
+        <td class="nowrap">{{ r.created_at|when }}</td>
+        <td>{% if r.seal_valid %}<span class="pill pill-ok">valid</span>{% else %}<span class="pill pill-bad">tampered</span>{% endif %}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('integrity_simulate_tamper', rec_id=r.id) }}" data-confirm="DEMO: overwrite this record's stored hash directly in the database, like an attacker would. Continue?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-ghost btn-xs" type="submit" title="Attack simulation for demonstrations">Simulate DB attack</button>
+          </form>
+          <form method="post" action="{{ url_for('integrity_delete', rec_id=r.id) }}" data-confirm="Delete this record?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-ghost btn-xs" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">No files registered yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

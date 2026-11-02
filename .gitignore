@@ -1,0 +1,35 @@
+# SecureVault - Sensitive local files & keys
+instance/
+*.key
+*.db
+*.sqlite3
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets
+.env
+.env.*
+
+# Generated media / test files
+*.mp4
+*.mkv
+*.mov
+*.avi
+demo_phone_video.mp4
+sanitized_*.mp4
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

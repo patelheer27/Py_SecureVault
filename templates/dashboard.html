@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Security overview</h1>
+  <p class="muted">Signed in as <b>{{ session.username }}</b> with two factors. Every security event is written to the audit log below.</p>
+</section>
+
+<section class="grid3">
+  <article class="card module">
+    <div class="module-head"><span class="num">01</span><h2>Multi-Factor Authentication</h2></div>
+    <p class="muted">Password (scrypt-hashed) + TOTP code (RFC 6238). Secrets encrypted at rest, codes can't be replayed, 5 failures lock the account.</p>
+    <dl class="kv">
+      <div><dt>Status</dt><dd><span class="pill pill-ok">Enforced</span></dd></div>
+      <div><dt>Recovery codes left</dt><dd class="{{ 'warn-text' if codes_left < 3 }}">{{ codes_left }} / 8</dd></div>
+    </dl>
+    <form method="post" action="{{ url_for('regenerate_codes') }}" data-confirm="This invalidates all existing recovery codes. Continue?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-ghost btn-sm" type="submit">Regenerate recovery codes</button>
+    </form>
+  </article>
+
+  <article class="card module">
+    <div class="module-head"><span class="num">02</span><h2>Video Metadata Sanitizer</h2></div>
+    <p class="muted">Removes GPS location, phone make &amp; model, recording time, software tags, chapters and hidden data tracks. No re-encoding, so quality is untouched.</p>
+    <dl class="kv">
+      <div><dt>Engine</dt><dd>{% if ffmpeg_ok %}<span class="pill pill-ok">ffmpeg ready</span>{% else %}<span class="pill pill-bad">ffmpeg missing</span>{% endif %}</dd></div>
+      <div><dt>Videos sanitized</dt><dd>{{ sanitized }}</dd></div>
+    </dl>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('sanitizer') }}">Open sanitizer</a>
+  </article>
+
+  <article class="card module">
+    <div class="module-head"><span class="num">03</span><h2>File Integrity Checker</h2></div>
+    <p class="muted">SHA-256 fingerprints, sealed with HMAC so a tampered database is detected too. Verifies uploads weren't altered in transit.</p>
+    <dl class="kv">
+      <div><dt>Algorithm</dt><dd>SHA-256 + HMAC-SHA256</dd></div>
+      <div><dt>Files registered</dt><dd>{{ files }}</dd></div>
+    </dl>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('integrity') }}">Open checker</a>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Audit log <span class="muted small">(last 15 events for your account)</span></h2>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Time</th><th>Event</th><th>Detail</th><th>IP</th></tr></thead>
+    <tbody>
+    {% for e in events %}
+      <tr>
+        <td class="nowrap">{{ e.ts|when }}</td>
+        <td><span class="evt evt-{{ 'bad' if ('FAIL' in e.event or 'LOCK' in e.event or 'TAMPER' in e.event or 'BLOCK' in e.event or 'MODIFIED' in (e.detail or '') or 'TAMPERED' in (e.detail or '')) else 'ok' }}">{{ e.event }}</span></td>
+        <td>{{ e.detail }}</td>
+        <td class="mono">{{ e.ip }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">No events yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}
